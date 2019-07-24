@@ -1,0 +1,257 @@
+---
+title: NYC School Survey - 2011
+author: Nick Luthi
+date: April 20, 2019
+output: html_notebook
+Objective: Determine how public perceptions of NYC schools relates to academic performance, as well as how perceptions differ among survey respondents.  
+---
+
+Load relevant data analysis packages.
+
+```{r}
+#install.packages(c("readr", "dplyr", "stringr", "purrr", "tidyr", "ggplot2", "reshape2"))
+library(readr)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+```
+
+Import data to be used for analysis.  
+School survey data was downloaded from https://data.cityofnewyork.us/Education/2011-NYC-School-Survey/mnz3-dyi8.
+The gen_ed data contains survey data for schools that do not specifically serve populations with special needs.
+The spe_ed data contains survey data for schools which provide special education support for children with learning or physical disabilities.
+
+```{r}
+setwd("C:\\Users\\nluth\\Documents\\R\\RData\\Guided Projects\\NYC School Survey 2011\\")
+combined <- read_csv("combined.csv")
+gen_ed <- read_tsv("masterfile11_gened_final.txt")
+spe_ed <- read_tsv("masterfile11_d75_final.txt")
+```
+
+Simplify dataframes to include a key identifier (DBN), SAT results, income demographics, and perceptions of safety, communication, engagement, and academics.  
+Safety scores will be broken into four categories: aggregate, reported by parents, reported by teachers, and reported by students.
+Income demographics include the percentages of special education students, students receiving free/discounted lunches, and students where English is not the primary language.
+
+```{r}
+gen_ed_agg <- gen_ed %>%
+  select(dbn, schooltype, saf_tot_11, com_tot_11, eng_tot_11, aca_tot_11)
+
+gen_ed_p <- gen_ed %>%
+  select(dbn, schooltype, saf_p_11, com_p_11, eng_p_11, aca_p_11)  
+
+gen_ed_t <- gen_ed %>%
+  select(dbn, schooltype, saf_t_11, com_t_11, eng_t_11, aca_t_11) 
+
+gen_ed_s <- gen_ed %>%
+  select(dbn, schooltype, saf_s_11, com_s_11, eng_s_11, aca_s_11) 
+
+gen_ed_indiv <- gen_ed %>%
+  select(dbn, schooltype, saf_p_11:aca_tot_11)
+
+combined_simp <- combined %>%
+  select(DBN, boro, avg_sat_score, sped_percent, ell_percent, frl_percent) %>%
+  rename(dbn = DBN)
+```
+
+Combine dataframes by using the DBN key to facilitate comparisons between perceptions and academic performance at the high school level.  
+Join to keep only survey data that corresponds to schools for which we have academic performance data.  
+
+```{r}
+agg_perc <- combined_simp %>%
+  left_join(gen_ed_agg, by = "dbn") %>%
+  filter(schooltype == "High School" | schooltype == "Elementary / Middle / High School" | schooltype == "Elementary / Middle / High School")
+
+p_perc <- combined_simp %>%
+  left_join(gen_ed_p, by = "dbn") %>%
+  filter(schooltype == "High School" | schooltype == "Elementary / Middle / High School" | schooltype == "Elementary / Middle / High School")
+
+t_perc <- combined_simp %>%
+  left_join(gen_ed_t, by = "dbn") %>%
+  filter(schooltype == "High School" | schooltype == "Elementary / Middle / High School" | schooltype == "Elementary / Middle / High School")
+
+s_perc <- combined_simp %>%
+  left_join(gen_ed_s, by = "dbn") %>%
+  filter(schooltype == "High School" | schooltype == "Elementary / Middle / High School" | schooltype == "Elementary / Middle / High School")
+
+indiv_perc <- combined_simp %>%
+  left_join(gen_ed_indiv, by = "dbn") %>%
+  filter(schooltype == "High School" | schooltype == "Elementary / Middle / High School" | schooltype == "Elementary / Middle / High School")
+
+```
+
+Create a correlation matrix to look for compelling relationships at the aggregate perception level.
+
+```{r}
+cor_matrix_agg <- agg_perc %>%
+  select(avg_sat_score, saf_tot_11:aca_tot_11) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as_tibble(rownames = "variable")
+```
+
+Make scatterplots with underlying aggregate perception correlation variables to examine relationships more closely.
+
+```{r}
+agg_perc <- agg_perc %>%
+  drop_na(avg_sat_score, dbn)
+  
+create_scatterplot <- function(x, y) {
+  ggplot(data = agg_perc) +
+    aes_string(x = x, y = y) +
+    geom_point() +
+    theme(panel.background = element_rect(fill = "white"))
+}
+
+x_var_perc <- names(agg_perc)[8:11]
+y_var_sat <- "avg_sat_score"
+
+map2(x_var_perc, y_var_sat, create_scatterplot)
+```
+
+Create a correlation matrix to look for compelling relationships at the parent perception level.
+
+```{r}
+cor_matrix_p <- p_perc %>%
+  select(avg_sat_score, saf_p_11:aca_p_11) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as_tibble(rownames = "variable")
+```
+
+Make scatterplots with underlying parent perception correlation variables to examine relationships more closely.
+
+```{r}
+p_perc <- p_perc %>%
+  drop_na(avg_sat_score, dbn)
+  
+create_scatterplot <- function(x, y) {
+  ggplot(data = p_perc) +
+    aes_string(x = x, y = y) +
+    geom_point() +
+    theme(panel.background = element_rect(fill = "white"))
+}
+
+x_var_perc <- names(p_perc)[8:11]
+y_var_sat <- "avg_sat_score"
+
+map2(x_var_perc, y_var_sat, create_scatterplot)
+```
+
+Create a correlation matrix to look for compelling relationships at the teacher perception level.
+
+```{r}
+cor_matrix_t <- t_perc %>%
+  select(avg_sat_score, saf_t_11:aca_t_11) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as_tibble(rownames = "variable")
+```
+
+Make scatterplots with underlying teacher perception correlation variables to examine relationships more closely.
+
+```{r}
+t_perc <- t_perc %>%
+  drop_na(avg_sat_score, dbn)
+  
+create_scatterplot <- function(x, y) {
+  ggplot(data = t_perc) +
+    aes_string(x = x, y = y) +
+    geom_point() +
+    theme(panel.background = element_rect(fill = "white"))
+}
+
+x_var_perc <- names(t_perc)[8:11]
+y_var_sat <- "avg_sat_score"
+
+map2(x_var_perc, y_var_sat, create_scatterplot)
+```
+
+Create a correlation matrix to look for compelling relationships at the student perception level.
+
+```{r}
+cor_matrix_s <- s_perc %>%
+  select(avg_sat_score, saf_s_11:aca_s_11) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as_tibble(rownames = "variable")
+```
+
+Make scatterplots with underlying student perception correlation variables to examine relationships more closely.
+
+```{r}
+s_perc <- s_perc %>%
+  drop_na(avg_sat_score, dbn)
+  
+create_scatterplot <- function(x, y) {
+  ggplot(data = s_perc) +
+    aes_string(x = x, y = y) +
+    geom_point() +
+    theme(panel.background = element_rect(fill = "white"))
+}
+
+x_var_perc <- names(s_perc)[8:11]
+y_var_sat <- "avg_sat_score"
+
+map2(x_var_perc, y_var_sat, create_scatterplot)
+```
+
+Create a correlation matrix heat map to look for the most compelling relationships relative to the survey response groups.
+
+```{r}
+cor_matrix_indiv <- indiv_perc %>%
+  select(avg_sat_score, saf_p_11:aca_tot_11) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as_tibble(rownames = "variable")
+
+get_upper_tri <- function(matrix) {
+  matrix[lower.tri(matrix)] <- NA
+  return(matrix)
+}
+
+upper_tri_indiv <- get_upper_tri(cor_matrix_indiv)
+
+melted_cor_matrix_indiv <- melt(upper_tri_indiv, na.rm = TRUE) %>%
+  drop_na()
+colnames(melted_cor_matrix_indiv) <- c("Avg SAT Score", "School Perceptions", "Value")
+
+ggplot(data = melted_cor_matrix_indiv) + 
+  aes(x = `Avg SAT Score`, y = `School Perceptions`, fill = Value) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab", name = "Pearson Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1)) +
+  coord_fixed()
+```
+
+Reshape data to investigate differences between student, teacher, and parent responses to survey questions.
+Enhance the readability of the response types and questions.  
+
+```{r}
+indiv_perc_gather <- indiv_perc %>%
+  gather(key = "survey_question", value = score, saf_p_11:aca_tot_11)
+
+indiv_perc_gather <- indiv_perc_gather %>%
+  mutate(response_type = str_sub(survey_question, 4, 6)) %>%
+  mutate(question = str_sub(survey_question, 1, 3))
+
+indiv_perc_gather <- indiv_perc_gather %>%
+  mutate(response_type = if_else(response_type == "_p_", "Parent",
+                                 if_else(response_type == "_t_", "Teacher",
+                                         if_else(response_type == "_s_", "Student",
+                                                 if_else(response_type == "_to", "All Respondents", "NA")))))
+
+indiv_perc_gather <- indiv_perc_gather %>%
+  mutate(question = if_else(question == "saf", "Safety",
+                               if_else(question == "com", "Communication",
+                                       if_else(question == "aca", "Academic",
+                                               if_else(question == "eng", "Engagement", "NA")))))
+
+```
+
+Create a boxplot to see how the three groups of respondents answered the questions.
+
+```{r}
+ggplot(data = indiv_perc_gather) +
+  aes(x = question, y = score, fill = response_type) +
+  theme(panel.background = element_rect(fill = "white")) +
+  geom_boxplot()
+```
